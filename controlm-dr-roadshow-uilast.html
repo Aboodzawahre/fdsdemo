@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FDS × Control-M — Automated Disaster Recovery</title>
+<meta name="description" content="When the primary site goes down, Control-M triggers disaster recovery automatically. Presented by Fourth Dimension Systems.">
+<style>
+:root{--bg:#f3f7fc;--bg2:#e7eff9;--card:#ffffff;--line:rgba(20,40,80,.13);--txt:#14223b;--dim:#52627f;--or:#0d9488;--or2:#d97706;--tl:#0f766e;--cy:#0284c7;--vi:#7c3aed;--ok:#059669;--bad:#e11d48}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:Inter,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt);line-height:1.6;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1240px;margin:0 auto;padding:0 26px}
+section{padding:96px 0;position:relative}
+h1,h2,h3{line-height:1.1;letter-spacing:-.02em}
+h2{font-size:clamp(30px,4.2vw,50px);font-weight:700}
+.eyebrow{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--or2);font-weight:600;margin-bottom:14px}
+.lead{color:var(--dim);font-size:18px;max-width:680px;margin-top:16px}
+.grad{background:linear-gradient(100deg,var(--or),#60a5fa 55%,var(--vi));-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{display:inline-flex;gap:10px;align-items:center;padding:13px 24px;border-radius:999px;font-weight:600;font-size:15px;border:1px solid var(--line);cursor:pointer;background:transparent;color:var(--txt);transition:.25s;font-family:inherit}
+.btn:hover{border-color:var(--or2);transform:translateY(-2px)}
+.btn.pri{background:linear-gradient(100deg,var(--or),#3b82f6);border:0;color:#fff;box-shadow:0 10px 40px -12px var(--or)}
+.btn.sm{padding:9px 16px;font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 8px 28px -16px rgba(20,40,80,.3)}
+.reveal{opacity:0;transform:translateY(26px);transition:.8s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* nav + partner lockup */
+nav{position:fixed;top:0;left:0;right:0;z-index:60;transition:.3s}
+nav.s{background:rgba(243,247,252,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:76px;gap:20px}
+.lock{display:flex;align-items:center;gap:14px}
+.fds{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 14px;display:flex;align-items:center;height:48px}
+.fds img{height:34px;width:auto;display:block}
+.fds .fb{display:none;color:#0b1a3a;font-weight:800;letter-spacing:.05em}
+.x{color:var(--dim);font-size:20px}
+.bmc{display:flex;align-items:center;gap:12px}.bmc img{height:32px;width:auto;display:block}.bmcfb{display:none;font-weight:900;font-size:24px;letter-spacing:.02em}
+.bmct{border-left:1px solid var(--line);padding-left:12px;font-weight:700;font-size:17px;line-height:1.15}.bmct small{display:block;font-weight:400;color:var(--dim);font-size:10.5px;letter-spacing:.14em}
+.cm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px}
+.cm i{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,var(--or),#60a5fa,var(--vi),var(--or));position:relative}
+.cm i:after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--bg)}
+.cm small{font-weight:400;color:var(--dim);font-size:11px;letter-spacing:.12em;display:block;margin-top:-4px}
+.links{display:flex;gap:26px;font-size:14.5px;color:var(--dim)}
+.links a:hover{color:#fff}
+@media(max-width:900px){.links{display:none}}
+@media(max-width:560px){.cm small{display:none}}
+
+/* hero */
+.hero{min-height:88vh;display:flex;align-items:center;padding-top:110px;overflow:hidden;background:linear-gradient(180deg,#e3effc 0,#f3f7fc 100%)}
+#bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero .wrap{position:relative;z-index:2}
+.hero h1{font-size:clamp(40px,6.6vw,84px);font-weight:800;max-width:960px}
+.hero p{font-size:20px;color:var(--dim);max-width:660px;margin:24px 0 36px}
+.pill{box-shadow:0 4px 14px -8px rgba(20,40,80,.3);display:inline-flex;gap:8px;align-items:center;padding:7px 16px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--dim);margin-bottom:24px;background:var(--card)}
+.pill b{width:8px;height:8px;border-radius:50%;background:var(--bad);box-shadow:0 0 12px var(--bad);animation:bl 1.4s infinite}
+@keyframes bl{50%{opacity:.25}}
+.cta{display:flex;gap:14px;flex-wrap:wrap}
+
+/* ===== DR STAGE ===== */
+#sim{background:var(--bg2)}
+.stage{--card:rgba(255,255,255,.07);--line:rgba(255,255,255,.18);--txt:#f2f6ff;--dim:#e0e9fb;--or:#14b8a6;--or2:#fcd34d;--tl:#5eead4;--cy:#93d5fb;--vi:#c4b5fd;--ok:#6ee7b7;--bad:#fda4af;color:var(--txt);position:relative;margin-top:40px;border-radius:26px;border:1px solid var(--line);overflow:hidden;
+ background:radial-gradient(120% 90% at 50% 0,#4a72ba 0,#3b60a6 55%,#324f8d 100%);transition:.6s}
+.stage:before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:56px 56px;
+ -webkit-mask-image:radial-gradient(70% 70% at 50% 50%,#000 20%,transparent 80%);mask-image:radial-gradient(70% 70% at 50% 50%,#000 20%,transparent 80%)}
+.stage.alarm{box-shadow:inset 0 0 140px rgba(251,113,133,.28);animation:alm 1.6s ease-in-out infinite}
+@keyframes alm{50%{box-shadow:inset 0 0 200px rgba(251,113,133,.45)}}
+.hud{position:relative;display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;z-index:2}
+.hud .k{font-size:11px;letter-spacing:.2em;color:var(--dim)}
+.hud b{font-size:24px;font-weight:300;font-variant-numeric:tabular-nums;display:block}
+.status{padding:7px 18px;border-radius:999px;border:1px solid currentColor;font-size:12.5px;letter-spacing:.16em;color:var(--ok);display:flex;gap:9px;align-items:center;transition:.4s}
+.status:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.status.bad{color:var(--bad)}.status.warn{color:var(--or2)}
+.usersbar{position:relative;z-index:2;display:flex;justify-content:center;align-items:center;gap:26px;padding:16px 10px 0;flex-wrap:wrap}
+.users{display:flex;align-items:center;gap:10px;padding:9px 20px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:14px}
+.arr{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;color:var(--dim);opacity:.25;transition:.5s}
+.arr:after{content:"";width:90px;height:2px;background:repeating-linear-gradient(90deg,currentColor 0 8px,transparent 8px 14px);animation:dash 1s linear infinite}
+.arr.on{opacity:1;color:var(--cy)}.arr.bad{opacity:1;color:var(--bad)}.arr.ok{opacity:1;color:var(--ok)}
+@keyframes dash{to{background-position:14px 0}}
+.arena{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:22px;padding:24px;align-items:start}
+@media(max-width:980px){.arena{grid-template-columns:1fr}}
+.site{border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.1);padding:18px;transition:.5s}
+.site h4{font-size:15px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.site h4 small{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:500}
+.site.dead{border-color:rgba(251,113,133,.55);box-shadow:0 0 50px rgba(251,113,133,.18)}
+.site.live{border-color:rgba(52,211,153,.5);box-shadow:0 0 50px rgba(52,211,153,.12)}
+.tile{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:13px;border:1.5px solid var(--line);margin-bottom:9px;cursor:pointer;transition:.45s;background:rgba(255,255,255,.02)}
+.tile:hover{transform:translateX(3px)}
+.tile .ic{font-size:21px}.tile b{font-size:14.5px;font-weight:600;flex:1}
+.tile .s{font-size:10.5px;letter-spacing:.14em;color:var(--dim)}
+.tile.ok,.tile.up{border-color:rgba(52,211,153,.6);background:rgba(52,211,153,.07)}.tile.ok .s,.tile.up .s{color:var(--ok)}
+.tile.up{box-shadow:0 0 24px rgba(52,211,153,.25)}
+.tile.down{border-color:rgba(251,113,133,.6);background:rgba(251,113,133,.07);filter:grayscale(.6);animation:fk .5s 2}
+.tile.down .s{color:var(--bad)}
+.tile.standby{opacity:.55;border-style:dashed}.tile.standby .s{color:var(--cy)}
+.tile.start{border-color:var(--or2);background:rgba(251,191,36,.1);animation:pl .8s infinite}.tile.start .s{color:var(--or2)}
+@keyframes fk{25%{opacity:.3;transform:translateX(-4px)}60%{opacity:1;transform:translateX(4px)}}
+@keyframes pl{50%{box-shadow:0 0 26px rgba(251,191,36,.5)}}
+.core{display:flex;flex-direction:column;align-items:center;gap:16px;min-width:0}
+.orbwrap{position:relative;width:170px;height:170px;display:grid;place-items:center;cursor:pointer}
+.orb{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#1b2a4a,#0e1730);border:1.5px solid var(--or);display:grid;place-items:center;text-align:center;z-index:2;transition:.5s}
+.orb b{display:block;font-size:17px}.orb small{font-size:10.5px;letter-spacing:.16em;color:var(--tl)}
+.ring{position:absolute;inset:0;border-radius:50%;border:2px dashed rgba(94,234,212,.5);animation:sp 14s linear infinite}
+.ring.r2{inset:8px;border:2px solid transparent;border-top-color:#60a5fa;border-bottom-color:var(--vi);animation:sp 6s linear infinite reverse}
+@keyframes sp{to{transform:rotate(360deg)}}
+.orbwrap.alert .orb{border-color:var(--bad);box-shadow:0 0 50px rgba(251,113,133,.5)}.orbwrap.alert .orb small{color:var(--bad)}
+.orbwrap.alert .ring{border-color:rgba(251,113,133,.7);animation-duration:3s}
+.orbwrap.good .orb{border-color:var(--ok);box-shadow:0 0 50px rgba(52,211,153,.35)}.orbwrap.good .orb small{color:var(--ok)}
+.orbwrap.idle .orb{border-color:#555;filter:grayscale(1)}.orbwrap.idle .ring{animation-play-state:paused;opacity:.3}.orbwrap.idle .orb small{color:#888}
+.orbwrap:after{content:"";position:absolute;inset:18px;border-radius:50%;border:2px solid var(--or);opacity:0;animation:wv 2.6s infinite}
+@keyframes wv{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+.orbwrap.idle:after{display:none}
+.panel{width:100%;min-height:290px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.1);padding:20px;animation:pin .5s}
+@keyframes pin{from{opacity:0;transform:translateY(12px)}}
+.panel h3{font-size:20px;margin-bottom:8px}.panel p{color:var(--dim);font-size:14.5px}
+.mon{border:1px solid rgba(251,113,133,.5);border-radius:12px;overflow:hidden;font:12.5px/1.65 ui-monospace,Consolas,monospace}
+.mon .bar{background:rgba(251,113,133,.18);color:#fecdd3;padding:8px 12px;display:flex;justify-content:space-between;font-weight:700;letter-spacing:.06em}
+.mon .ln{padding:5px 12px;color:#b9c6e6;opacity:0;animation:ln .4s forwards}
+.mon .ln b{color:var(--bad)}
+@keyframes ln{to{opacity:1}}
+.mon .trig{margin:10px;padding:12px;border-radius:10px;background:rgba(52,211,153,.12);border:1px solid var(--ok);color:var(--ok);font-weight:700;text-align:center;opacity:0;animation:ln .5s forwards;letter-spacing:.04em}
+.steps{display:grid;gap:6px}
+.stp{display:flex;flex-wrap:wrap;gap:4px 11px;align-items:center;padding:7px 11px;border-radius:10px;font-size:13.5px;border-left:3px solid var(--line);background:rgba(255,255,255,.03);opacity:.4;transition:.4s}
+.stp i{margin-left:auto;font-style:normal;font-size:10.5px;letter-spacing:.14em;color:var(--dim)}
+.stp small{display:none;width:100%;font-size:11.5px;color:var(--cy)}
+.stp.run{opacity:1;border-color:var(--cy);background:rgba(125,211,252,.1)}.stp.run i{color:var(--cy)}.stp.run small{display:block}
+.stp.done{opacity:1;border-color:var(--ok)}.stp.done i{color:var(--ok)}
+.kp3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.kp3 div{padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);text-align:center}
+.kp3 b{display:block;font-size:22px;color:var(--ok)}.kp3 span{font-size:11px;color:var(--dim);letter-spacing:.08em}
+.repl{position:relative;z-index:2;padding:0 24px 18px;display:flex;align-items:center;gap:14px;font-size:11.5px;letter-spacing:.16em;color:var(--dim);cursor:pointer}
+.repl .l{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--cy) 0 10px,transparent 10px 18px);animation:dash 1s linear infinite;opacity:.9;transition:.4s}
+.repl.cut .l{background:repeating-linear-gradient(90deg,var(--bad) 0 4px,transparent 4px 40px);animation:none}
+.repl.cut{color:var(--bad)}
+.log{position:relative;z-index:2;height:118px;overflow:auto;font:12px/1.75 ui-monospace,Consolas,monospace;padding:10px 24px;border-top:1px solid var(--line);background:rgba(30,56,120,.45);color:#b9c6e6}
+.log span{color:var(--dim);margin-right:10px}.log .r{color:#fda4af}.log .g{color:var(--ok)}.log .o{color:var(--or2)}.log .c{color:var(--cy)}
+.ctrl{position:relative;z-index:2;display:flex;gap:10px;align-items:center;padding:14px 24px;border-top:1px solid var(--line);flex-wrap:wrap}
+.dots{display:flex;gap:7px;flex:1;min-width:200px;align-items:center}
+.dt{flex:1;height:6px;border-radius:9px;background:var(--line);cursor:pointer;transition:.3s}
+.dt.on{background:linear-gradient(90deg,var(--or),#3b82f6)}.dt.cur{box-shadow:0 0 14px var(--or)}
+.lab{font-size:13px;color:var(--dim);min-width:230px}
+
+/* dashboard + race area */
+#dash{display:none;position:relative;z-index:2;padding:6px 24px 24px;animation:pin .6s}
+.dh{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:14px 0;border-top:1px solid var(--line)}
+.dh b{font-size:16px}.dh span{font-size:12px;color:var(--dim);letter-spacing:.06em}
+.kgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+@media(max-width:980px){.kgrid{grid-template-columns:repeat(2,1fr)}}
+.kg{padding:16px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
+.kg b{font-size:26px;display:block;color:var(--ok);font-weight:700;letter-spacing:-.02em}.kg span{font-size:11.5px;color:var(--dim);letter-spacing:.04em}
+.dcols{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-top:16px}
+@media(max-width:980px){.dcols{grid-template-columns:1fr}}
+.dbox{padding:18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.dbox h4{font-size:12px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;margin-bottom:12px;font-weight:600}
+.br{display:grid;grid-template-columns:150px 1fr 48px;gap:10px;align-items:center;font-size:12.5px;margin-bottom:8px}
+.br .t{height:10px;background:var(--line);border-radius:9px;overflow:hidden}
+.br .t i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--ok));transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+.br em{font-style:normal;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+.svc{display:flex;flex-wrap:wrap;gap:8px}
+.svc span{padding:6px 12px;border-radius:99px;border:1px solid rgba(52,211,153,.5);background:rgba(52,211,153,.08);font-size:12.5px}
+.svc span:before{content:"● ";color:var(--ok)}
+.sla{margin-top:16px;font-size:13px;color:var(--dim)}.sla .t{height:8px;border-radius:9px;background:var(--line);margin-top:8px;overflow:hidden}
+.sla .t i{display:block;height:100%;width:0;background:var(--ok);transition:width 1.2s}
+.note{font-size:12.5px;color:var(--dim);margin-top:12px}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.vs{grid-template-columns:1fr}}
+.col{padding:20px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.col.old{border-color:rgba(251,113,133,.4)}.col.new{border-color:rgba(52,211,153,.45)}
+.col h3{font-size:17px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.col h3 span{font-size:11px;color:var(--dim);font-weight:400}
+.col .ck{font-size:32px;font-weight:200;font-variant-numeric:tabular-nums;margin:4px 0 8px}
+.col.old .ck{color:var(--bad)}.col.new .ck{color:var(--ok)}
+.bar2{height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-bottom:12px}
+.bar2 i{display:block;height:100%;width:0;transition:width .15s linear}
+.col.old .bar2 i{background:var(--bad)}.col.new .bar2 i{background:var(--ok)}
+.rs{display:flex;gap:10px;align-items:center;padding:7px 11px;border-radius:10px;font-size:12.8px;border-left:3px solid var(--line);background:rgba(255,255,255,.03);opacity:.4;margin-bottom:5px;transition:.35s}
+.rs .tg{margin-left:auto;font-size:9.5px;letter-spacing:.08em;padding:2px 9px;border-radius:99px;border:1px solid currentColor;white-space:nowrap;color:var(--or2)}
+.col.new .rs .tg{color:var(--ok)}
+.rs.run{opacity:1;border-color:var(--cy);background:rgba(125,211,252,.08)}
+.rs.done{opacity:1;border-color:var(--ok)}
+.col.old .rs.run{border-color:var(--bad);background:rgba(251,113,133,.09)}
+.col.old .rs.pain .tg{color:var(--bad)}
+.mark{margin:12px 0 0;padding:11px 14px;border-radius:12px;background:rgba(52,211,153,.1);border:1px solid var(--ok);color:var(--ok);font-size:13px;display:none}
+.mark.show{display:block;animation:pin .5s}
+.cbar{display:grid;grid-template-columns:120px 1fr 90px;gap:12px;align-items:center;margin-bottom:12px;font-size:14px}
+.cbar .t{height:26px;border-radius:9px;background:var(--line);overflow:hidden}
+.cbar .t i{display:block;height:100%;width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+.cbar em{font-style:normal;font-variant-numeric:tabular-nums;text-align:right}
+.big4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+@media(max-width:900px){.big4{grid-template-columns:repeat(2,1fr)}}
+.big4 div{padding:14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.04);text-align:center}
+.big4 b{font-size:22px;display:block}.big4 b i{font-style:normal;color:var(--ok)}.big4 b u{text-decoration:none;color:var(--bad)}
+.big4 span{font-size:11.5px;color:var(--dim)}
+.hero2{display:flex;gap:30px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:18px}
+.hero2 div{text-align:center}.hero2 b{font-size:clamp(30px,4vw,48px);font-weight:800;display:block;line-height:1}.hero2 span{font-size:12px;color:var(--dim);letter-spacing:.1em}
+
+.below{display:grid;grid-template-columns:1fr 1.5fr;gap:24px;margin-top:26px}
+@media(max-width:980px){.below{grid-template-columns:1fr}}
+.narr{padding:28px}.narr .n{font-size:12px;letter-spacing:.2em;color:var(--or2);margin-bottom:8px}
+.narr h3{font-size:26px;margin-bottom:10px}.narr p{color:var(--dim);font-size:16px}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.roles{grid-template-columns:1fr 1fr}}
+.role{padding:15px;border-radius:15px;border:1px solid var(--line);background:var(--card);transition:.4s;opacity:.55}
+.role .h{font-size:14.5px;font-weight:700;margin-bottom:4px}.role p{font-size:12.5px;color:var(--dim);line-height:1.5}
+.role.act{opacity:1;border-color:var(--or);background:rgba(20,184,166,.09);box-shadow:0 0 28px rgba(20,184,166,.18);transform:translateY(-3px)}
+.role.flash{animation:fl 1s}
+@keyframes fl{30%{box-shadow:0 0 0 3px var(--cy)}}
+
+/* comparison table, value, FDS */
+.cmp{display:grid;grid-template-columns:1fr 1fr;margin-top:40px;border-radius:20px;overflow:hidden;border:1px solid var(--line)}
+.cmp div{padding:15px 20px;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--dim)}
+.cmp .hd{background:rgba(20,40,80,.07);font-weight:700;color:var(--txt)}
+.cmp .o:before{content:"✕  ";color:var(--bad);font-weight:700}.cmp .n:before{content:"✓  ";color:var(--ok);font-weight:700}
+.cmp .n{background:rgba(52,211,153,.04);color:var(--txt)}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:46px}
+@media(max-width:900px){.trio{grid-template-columns:1fr}}
+.tr{padding:30px;transition:.3s}.tr:hover{transform:translateY(-6px);border-color:var(--or2)}
+.tr .ic{font-size:30px;margin-bottom:14px}.tr h3{font-size:21px;margin-bottom:8px}.tr p{color:var(--dim);font-size:15.5px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}}
+.stats div{padding:24px;text-align:center}.stats b{font-size:44px;font-weight:800;display:block}.stats span{color:var(--dim);font-size:14px}
+.offices{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px}
+@media(max-width:900px){.offices{grid-template-columns:1fr 1fr}}
+.of{padding:20px;font-size:14px;color:var(--dim)}.of b{color:var(--txt);display:block;font-size:16px;margin-bottom:4px}
+.cta2{text-align:center;padding:80px 28px;border-radius:30px;background:radial-gradient(800px circle at 50% 0,rgba(20,184,166,.28),transparent 60%),var(--card);border:1px solid var(--line)}
+.form{display:flex;gap:10px;max-width:560px;margin:30px auto 0;flex-wrap:wrap;justify-content:center}
+.form input{flex:1;min-width:220px;padding:14px 22px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--txt);font-size:15px;outline:none}
+footer{border-top:1px solid var(--line);padding:30px 0;color:var(--dim);font-size:12.5px}
+.stage:fullscreen{overflow:auto;border-radius:0;margin:0;background:#324f8d}
+.stage:-webkit-full-screen{overflow:auto;border-radius:0;margin:0}
+.stage.pfs{position:fixed;inset:0;z-index:200;margin:0;border-radius:0;overflow:auto}
+.stage:fullscreen .ctrl{position:sticky;bottom:0;background:#324f8d;z-index:6}
+.stage.pfs .ctrl{position:sticky;bottom:0;background:#324f8d;z-index:6}
+
+/* ===== Control-M workflow orchestration UI mock-up ===== */
+.uiwin{margin-top:40px;border-radius:18px;border:1px solid var(--line);background:#fff;overflow:hidden;box-shadow:0 30px 60px -30px rgba(20,40,80,.45);color:#14223b}
+.uitop{display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(90deg,#0f3d5e,#0f766e);color:#fff;flex-wrap:wrap}
+.uitop b{font-size:16px}.uitop .uiurl{font-size:12.5px;opacity:.8;letter-spacing:.04em}.uitop .uisp{flex:1}
+.uitop .btn{color:#fff;border-color:rgba(255,255,255,.4)}.uitop .btn.pri{border:0}
+.d3 i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:#ff5f57}.d3 i:nth-child(2){background:#febc2e}.d3 i:nth-child(3){background:#28c840}
+.uibody{display:grid;grid-template-columns:78px 1fr 310px;min-height:540px}
+.uinav{background:#f1f5f9;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;padding:10px 6px}
+.uinav div{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:10px;font-size:10.5px;color:#52627f;cursor:default;text-align:center}
+.uinav div span{font-size:20px}.uinav div.on{background:#fff;color:#0f766e;font-weight:700;box-shadow:0 2px 8px -4px rgba(20,40,80,.4)}
+.uimain{min-width:0;display:flex;flex-direction:column}
+.uisum{position:relative;display:flex;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);align-items:stretch}
+.uic{min-width:112px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:#fff;border-left:4px solid var(--c)}
+.uic b{font-size:24px;display:block;line-height:1.15;color:var(--c)}.uic span{font-size:10.5px;color:#52627f;letter-spacing:.08em;text-transform:uppercase}
+.uisla{position:relative;margin-left:auto;flex:1 1 230px;min-width:230px;max-width:380px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:#f8fafc;font-size:12.5px;color:#52627f}
+.uisla b{color:#14223b;font-size:13px}.uisla em{font-style:normal;font-weight:700}.uisla .hd{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.uisla .bar{height:8px;border-radius:9px;background:#e2e8f0;margin-top:8px;overflow:hidden}.uisla .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0d9488,#34d399);transition:width .6s}
+.uitabs{display:flex;gap:6px;align-items:center;padding:10px 16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.uitabs button{border:0;background:transparent;padding:9px 16px;font-size:13.5px;font-weight:600;color:#52627f;cursor:pointer;border-bottom:3px solid transparent;font-family:inherit}
+.uitabs button.on{color:#0f766e;border-color:#0d9488}
+.uitabs .uifolder{margin-left:auto;font-size:12px;color:#52627f;padding-bottom:8px}
+.uicw{position:relative;overflow-x:auto;overflow-y:hidden;background:#f8fafc;background-image:radial-gradient(#cbd5e1 1px,transparent 1px);background-size:20px 20px}
+.uicanvas{position:relative;width:1060px;height:360px;transform-origin:0 0}
+.uifold{position:absolute;left:6px;top:14px;width:1048px;height:334px;border:2px dashed #94a3b8;border-radius:16px}
+.uifold span{position:absolute;top:-11px;left:16px;background:#f8fafc;padding:0 10px;font-size:11.5px;font-weight:700;color:#52627f;letter-spacing:.06em}
+#uisvg{position:absolute;inset:0;width:1060px;height:360px;pointer-events:none}
+.edge path{fill:none;stroke:#94a3b8;stroke-width:2;transition:.4s}.edge polygon{fill:#94a3b8;transition:.4s}
+.edge.done path{stroke:#059669}.edge.done polygon{fill:#059669}
+.edge.flow path{stroke:#0284c7;stroke-dasharray:7 6;animation:ued .7s linear infinite}.edge.flow polygon{fill:#0284c7}
+@keyframes ued{to{stroke-dashoffset:-13}}
+.uin{position:absolute;width:124px;height:64px;border-radius:12px;background:#fff;border:2px solid #cbd5e1;padding:8px 10px;cursor:pointer;transition:.3s;box-shadow:0 6px 14px -10px rgba(20,40,80,.5)}
+.uin:hover{transform:translateY(-2px)}
+.uin b{font-size:12px;display:flex;gap:6px;align-items:flex-start;line-height:1.2;color:#14223b}.uin b i{font-style:normal;font-size:16px;line-height:1}
+.uin small{display:block;margin-top:6px;font-size:10px;letter-spacing:.08em;color:#64748b;font-weight:700;text-transform:uppercase}
+.uin.sel{outline:3px solid rgba(13,148,136,.45);outline-offset:2px}
+.uin.st-run{border-color:#0284c7;box-shadow:0 0 0 4px rgba(2,132,199,.18);animation:upl 1s infinite}.st-run small{color:#0284c7}
+.uin.st-ok{border-color:#059669;background:#ecfdf5}.st-ok small{color:#059669}
+.uin.st-fail{border-color:#e11d48;background:#fff1f2;animation:ush .4s}.st-fail small{color:#e11d48}
+.uin.st-retry{border-color:#d97706;background:#fffbeb;box-shadow:0 0 0 4px rgba(217,119,6,.2)}.st-retry small{color:#d97706}
+@keyframes upl{50%{box-shadow:0 0 0 8px rgba(2,132,199,.08)}}@keyframes ush{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.uilog{padding:10px 16px;border-top:1px solid var(--line);font:12px/1.7 ui-monospace,Consolas,monospace;color:#475569;height:76px;overflow:auto;background:#fff}
+.uilog .g{color:#059669}.uilog .r{color:#e11d48}.uilog .o{color:#d97706}.uilog .c{color:#0284c7}
+.uilist{padding:0;overflow:auto;max-height:420px}.uilist table{width:100%;border-collapse:collapse;font-size:13px}
+.uilist th{position:sticky;top:0;background:#f1f5f9;text-align:left;padding:10px 14px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#52627f}
+.uilist td{padding:10px 14px;border-top:1px solid #e2e8f0}.pillst{padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700}
+.pillst.wait{background:#e2e8f0;color:#475569}.pillst.run{background:#e0f2fe;color:#0284c7}.pillst.ok{background:#d1fae5;color:#047857}.pillst.fail{background:#ffe4e6;color:#be123c}.pillst.retry{background:#fef3c7;color:#b45309}
+@media(max-width:560px){nav .btn{display:none}}
+.uiprops{position:relative;border-left:1px solid var(--line);padding:18px;background:#f8fafc;font-size:13px;color:#14223b}
+.uiprops h4{font-size:11px;letter-spacing:.14em;color:#64748b;text-transform:uppercase;margin-bottom:10px}
+.uiprops h3{font-size:18px;display:flex;gap:8px;align-items:center;margin-bottom:8px;letter-spacing:-.01em}
+.uiprops dl{display:grid;grid-template-columns:96px 1fr;gap:8px 10px;margin-top:14px}.uiprops dt{color:#64748b;font-size:12px}.uiprops dd{font-weight:600;word-break:break-word}
+.uiprops p{color:#52627f;font-size:12.5px;margin-top:12px;line-height:1.55}
+.uimk{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#f59e0b;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.25);z-index:3;pointer-events:none}
+.uileg{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+@media(max-width:980px){.uileg{grid-template-columns:1fr 1fr}.uibody{grid-template-columns:1fr}.uinav{flex-direction:row;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}.uiprops{border-left:0;border-top:1px solid var(--line)}.uisla{margin-left:0;width:100%}}
+.lg{padding:16px 18px;font-size:13.5px;color:var(--dim)}.lg b{display:flex;gap:10px;align-items:center;color:var(--txt);font-size:14.5px;margin-bottom:6px}
+.lg b i{font-style:normal;width:22px;height:22px;border-radius:50%;background:#f59e0b;color:#fff;font-size:12px;display:grid;place-items:center;flex:none}
+</style>
+<script>var _b=["bmc-logo.svg","bmc-logo.png","bmc-logo.webp","bmc-logo.jpg"],_i=0;function bmcFail(e){_i++;if(_i<_b.length){e.src=_b[_i]}else{e.style.display="none";var f=document.getElementById("bmcFb");if(f)f.style.display="block"}}</script>
+</head>
+<body>
+
+<nav id="nav"><div class="wrap">
+  <div class="lock">
+    <a class="fds" href="https://fdsme.com/" target="_blank" rel="noopener" title="Fourth Dimension Systems">
+      <img src="https://fdsme.com/sites/default/files/Fourth_Dimension-1-removebg-preview%20%281%29.png" alt="Fourth Dimension Systems (FDS)" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <span class="fb">FDS</span>
+    </a>
+    <span class="x">×</span>
+    <div class="bmc"><img id="bmcImg" src="https://www.fusiongbs.com/media/4vjp4qai/bmc-2x-min.png?width=800&height=400&quality=80&v=1dd2f15af6e19f0" alt="BMC" onerror="bmcFail(this)"><span class="bmcfb" id="bmcFb">BMC</span><div class="bmct">Control-M<small>BY BMC</small></div></div>
+  </div>
+  <div class="links"><a href="#sim">Live DR simulation</a><a href="#ui">Control-M interface</a><a href="#old">Old way vs Control-M</a><a href="#value">Why it matters</a><a href="#fds">About FDS</a></div>
+  <a class="btn pri sm" href="#contact">Book a session</a>
+</div></nav>
+
+<header class="hero">
+  <canvas id="bg"></canvas>
+  <div class="wrap">
+    <div class="pill"><b></b> What if your data centre went dark tonight?</div>
+    <h1>Disaster strikes. <span class="grad">Control-M recovers.</span> Automatically.</h1>
+    <p>Watch a full disaster-recovery failover unfold with live alarms, an execution log and a recovery dashboard. Then watch the same disaster handled the traditional way, and compare.</p>
+    <div class="cta"><a class="btn pri" href="#sim" id="startSim">⚡ Start the live simulation</a><a class="btn" href="#old">Why automate DR?</a></div>
+  </div>
+</header>
+
+<section id="sim"><div class="wrap">
+  <div class="eyebrow reveal">Interactive demonstration</div>
+  <h2 class="reveal">The day the <span class="grad">primary site went down.</span></h2>
+  <p class="lead reveal">Turn your sound on and press <b>Simulate disaster</b>. You'll see the failover, the Control-M recovery dashboard, and then the same outage recovered the old way, side by side. Click any component to see its role.</p>
+
+  <div class="stage" id="stage">
+    <div class="hud">
+      <div><span class="k" id="clkL">ELAPSED (SIMULATED)</span><b id="clk">--:--:--</b></div>
+      <div class="status" id="status">ALL SYSTEMS NORMAL</div>
+      <div style="text-align:right"><span class="k">RECOVERY POINT</span><b id="rpo">≈ 0 s</b></div>
+    </div>
+    <div class="usersbar">
+      <div class="arr on" id="aP">TO PRIMARY</div>
+      <div class="users">👥 Customers &amp; employees</div>
+      <div class="arr" id="aD">TO DR SITE</div>
+    </div>
+    <div class="arena">
+      <div class="site live" id="sP"><h4>Primary data centre <small id="spS">ACTIVE</small></h4><div id="tP"></div></div>
+      <div class="core">
+        <div class="orbwrap" id="orb"><div class="ring"></div><div class="ring r2"></div><div class="orb"><div><b>Control-M</b><small id="orbS">MONITORING</small></div></div></div>
+        <div class="panel" id="panel"></div>
+      </div>
+      <div class="site" id="sD"><h4>DR data centre <small id="sdS">STANDBY</small></h4><div id="tD"></div></div>
+    </div>
+    <div class="repl" id="repl"><span>PRIMARY</span><div class="l"></div><span id="replT">CONTINUOUS REPLICATION · DATA IN SYNC</span><div class="l"></div><span>DR</span></div>
+    <div id="dash"></div>
+    <div class="log" id="log"></div>
+    <div class="ctrl">
+      <button class="btn sm" id="prev">◀</button>
+      <button class="btn sm" id="play">⏸ Pause</button>
+      <button class="btn sm" id="next">▶</button>
+      <button class="btn sm" id="rst">↺ Restart</button>
+      <div class="dots" id="dots"></div>
+      <div class="lab" id="lab"></div>
+      <button class="btn sm" id="snd">🔊 Sound on</button>
+      <button class="btn sm" id="fs">⛶ Full screen</button>
+    </div>
+  </div>
+
+  <div class="below">
+    <div class="card narr reveal"><div class="n" id="nN"></div><h3 id="nT"></h3><p id="nD"></p></div>
+    <div class="roles" id="roles"></div>
+  </div>
+</div></section>
+
+<section id="ui" style="background:var(--bg2)"><div class="wrap">
+  <div class="eyebrow reveal">Workflow orchestration</div>
+  <h2 class="reveal">See the workflow <span class="grad">behind the recovery.</span></h2>
+  <p class="lead reveal">This is how the failover runbook looks inside a Control-M style workflow interface: every job, dependency and status on one canvas. Press <b>Run workflow</b> to execute it, click any job to inspect it, or inject a failure and watch the job being rerun automatically.</p>
+  <div class="uiwin reveal" id="uiwin">
+    <div class="uitop"><span class="d3"><i></i><i></i><i></i></span><b>Control-M</b><span class="uiurl">Monitoring · Workflows · DR-FAILOVER-PROD</span><span class="uisp"></span>
+      <button class="btn sm" id="uiFail">⚡ Inject failure</button><button class="btn sm pri" id="uiRun">▶ Run workflow</button><button class="btn sm" id="uiReset">↺ Reset</button></div>
+    <div class="uibody">
+      <div class="uinav"><div class="on"><span>📊</span>Monitoring</div><div><span>🧩</span>Workflows</div><div><span>🗓️</span>Planning</div><div><span>🛠️</span>Tools</div><div><span>⚙️</span>Configuration</div></div>
+      <div class="uimain">
+        <div class="uisum" id="uisum"><span class="uimk">1</span></div>
+        <div class="uitabs"><button class="on" data-v="flow">Workflow</button><button data-v="list">Job list</button><span class="uifolder">📁 Smart folder DR-FAILOVER-PROD · Application: Disaster Recovery</span></div>
+        <div class="uicw" id="uicw"><span class="uimk">2</span><div class="uicanvas" id="uicanvas"><div class="uifold"><span>DR-FAILOVER-PROD · SMART FOLDER</span></div><svg id="uisvg" viewBox="0 0 1060 360"></svg></div></div>
+        <div class="uilist" id="uilist" style="display:none"></div>
+        <div class="uilog" id="uilog"></div>
+      </div>
+      <aside class="uiprops" id="uiprops"><span class="uimk">3</span><div id="uipb"></div></aside>
+    </div>
+  </div>
+  <div class="uileg">
+    <div class="card lg reveal"><b><i>1</i>Status summary</b>Live counts of jobs that ended OK, are executing, waiting or ended not OK.</div>
+    <div class="card lg reveal"><b><i>2</i>Workflow canvas</b>Jobs and their dependencies drawn as a flow. Parallel branches run at the same time.</div>
+    <div class="card lg reveal"><b><i>3</i>Job properties</b>Click any job to see its agent, conditions and what happens if it fails.</div>
+    <div class="card lg reveal"><b><i>4</i>SLA service</b>A business-level view: is the recovery on track against its target?</div>
+  </div>
+  <p class="note">Illustrative interface mock-up prepared by FDS to explain workflow orchestration. It is not a screenshot of the BMC product, and the layout, job names and timings are examples.</p>
+</div></section>
+
+<section id="old" style="background:var(--bg2)"><div class="wrap">
+  <div class="eyebrow reveal">The old way vs the new way</div>
+  <h2 class="reveal">Why traditional DR <span class="grad">breaks under pressure.</span></h2>
+  <p class="lead reveal">A recovery plan on paper depends on people, phone calls and memory at the worst possible moment. Control-M turns the plan into an orchestrated, repeatable workflow.</p>
+  <div class="cmp reveal">
+    <div class="hd">Traditional DR</div><div class="hd">With Control-M</div>
+    <div class="o"><b style="color:var(--txt)">Detection:</b> someone has to notice the outage, then phone the on-call engineer.</div><div class="n"><b>Detection:</b> failures are detected as they happen and DR is triggered automatically.</div>
+    <div class="o"><b style="color:var(--txt)">Execution:</b> teams work from a Word or PDF runbook, step by step.</div><div class="n"><b>Execution:</b> a versioned, executable runbook runs end to end.</div>
+    <div class="o"><b style="color:var(--txt)">Dependencies:</b> order depends on who remembers it, and mistakes mean rework.</div><div class="n"><b>Dependencies:</b> modelled in the workflow, each tier health-checked before the next.</div>
+    <div class="o"><b style="color:var(--txt)">People:</b> relies on key individuals being reachable at 3 a.m.</div><div class="n"><b>People:</b> failover starts without anyone having to be reachable.</div>
+    <div class="o"><b style="color:var(--txt)">Documentation:</b> procedures drift out of date as the estate changes.</div><div class="n"><b>Documentation:</b> the workflow is the documentation, so it stays current.</div>
+    <div class="o"><b style="color:var(--txt)">Testing:</b> DR tests are rare, disruptive and labour-intensive.</div><div class="n"><b>Testing:</b> rehearse on demand with repeatable runs.</div>
+    <div class="o"><b style="color:var(--txt)">Audit:</b> evidence is pieced together from emails and chats afterwards.</div><div class="n"><b>Audit:</b> every step is logged automatically with timestamps.</div>
+    <div class="o"><b style="color:var(--txt)">Validation:</b> business checks done by phone and email.</div><div class="n"><b>Validation:</b> services validated with automated checks before sign-off.</div>
+  </div>
+</div></section>
+
+<section id="value"><div class="wrap">
+  <div class="eyebrow reveal">Why automate DR</div>
+  <h2 class="reveal">A recovery plan only works <span class="grad">if it runs.</span></h2>
+  <div class="trio">
+    <div class="card tr reveal"><div class="ic">⏱️</div><h3>Faster recovery</h3><p>Failover steps run in the right order, the moment criteria are met, shrinking the gap between outage and service.</p></div>
+    <div class="card tr reveal"><div class="ic">✅</div><h3>Validated, not assumed</h3><p>Every tier is health-checked before the next is released, and business transactions are confirmed end to end.</p></div>
+    <div class="card tr reveal"><div class="ic">📋</div><h3>Auditable &amp; testable</h3><p>Rehearse DR on demand and keep a full execution history, so readiness is proven rather than hoped for.</p></div>
+  </div>
+</div></section>
+
+<section id="fds" style="background:var(--bg2)"><div class="wrap">
+  <div class="eyebrow reveal">Your delivery partner</div>
+  <h2 class="reveal">Fourth Dimension Systems, <span class="grad">orchestrating success</span> in the Middle East.</h2>
+  <p class="lead reveal">FDS is an enterprise technology solutions provider across digital transformation, cybersecurity, contact centers and consulting, helping you design, implement and run resilient operations.</p>
+  <div class="stats">
+    <div class="card reveal"><b class="grad">32+</b><span>Years of experience</span></div>
+    <div class="card reveal"><b class="grad">800</b><span>Successful projects</span></div>
+    <div class="card reveal"><b class="grad">500+</b><span>Satisfied clients</span></div>
+    <div class="card reveal"><b class="grad">350+</b><span>Certified experts</span></div>
+  </div>
+  <div class="offices">
+    <div class="card of reveal"><b>Dubai, UAE (HQ)</b>+971 4 3024000</div>
+    <div class="card of reveal"><b>Abu Dhabi, UAE</b>+971 2 6443367</div>
+    <div class="card of reveal"><b>Riyadh, KSA</b>+966 1 14565235</div>
+    <div class="card of reveal"><b>Amman, Jordan</b>+962 6 5532900</div>
+  </div>
+</div></section>
+
+<section id="contact" style="padding-bottom:50px"><div class="wrap">
+  <div class="cta2 reveal">
+    <div class="eyebrow">Let's test your recovery plan</div>
+    <h2>See it run against <span class="grad">your environment.</span></h2>
+    <p class="lead" style="margin-inline:auto">Book a DR readiness workshop with FDS and Control-M specialists.</p>
+    <form class="form" id="form"><input type="email" required placeholder="Work email"><button class="btn pri">Request a workshop →</button></form>
+    <p id="thanks" style="margin-top:16px;color:var(--ok);display:none">Thank you. The FDS team will be in touch shortly.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">Control-M is a product of BMC Software; BMC and Control-M are trademarks of their respective owners. This simulation is an illustrative demonstration prepared by Fourth Dimension Systems for event use. Times, counts and figures shown are examples, not guarantees. Actual results depend on the customer environment.</div></footer>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+addEventListener("scroll",()=>$("#nav").classList.toggle("s",scrollY>30));
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}}),{threshold:.12});
+$$(".reveal").forEach(r=>io.observe(r));
+$("#form").onsubmit=e=>{e.preventDefault();$("#form").style.display="none";$("#thanks").style.display="block"};
+
+/* hero network */
+(()=>{const c=$("#bg"),x=c.getContext("2d");let W,H,P=[],m={x:-999,y:-999};
+const rs=()=>{W=c.width=innerWidth;H=c.height=c.parentElement.offsetHeight;P=Array.from({length:Math.min(80,W/18)},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3}))};
+rs();addEventListener("resize",rs);addEventListener("mousemove",e=>{m.x=e.clientX;m.y=e.clientY+scrollY});
+(function f(){x.clearRect(0,0,W,H);P.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+ x.fillStyle="rgba(13,148,136,.6)";x.beginPath();x.arc(p.x,p.y,1.7,0,7);x.fill();
+ for(let j=i+1;j<P.length;j++){const q=P[j],d=Math.hypot(p.x-q.x,p.y-q.y);if(d<130){x.strokeStyle=`rgba(37,99,235,${.28*(1-d/130)})`;x.beginPath();x.moveTo(p.x,p.y);x.lineTo(q.x,q.y);x.stroke()}}
+ const dm=Math.hypot(p.x-m.x,p.y-m.y);if(dm<190){x.strokeStyle=`rgba(20,184,166,${.5*(1-dm/190)})`;x.beginPath();x.moveTo(p.x,p.y);x.lineTo(m.x,m.y);x.stroke()}});
+ requestAnimationFrame(f)})()})();
+
+/* ===== SOUND EFFECTS (Web Audio, no files needed) ===== */
+const AC=window.AudioContext||window.webkitAudioContext;
+let ctx=null,master=null,soundOn=true;
+function actx(){if(!soundOn||!AC)return null;
+ if(!ctx){try{ctx=new AC();master=ctx.createGain();master.gain.value=.4;master.connect(ctx.destination)}catch(e){return null}}
+ if(ctx.state==="suspended")ctx.resume();return ctx}
+document.addEventListener("pointerdown",()=>{if(soundOn)actx()},{once:true});
+function tone(f,d,type="sine",v=.25,t0=0,f2){const c=actx();if(!c)return;const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+t0;
+ o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+d);
+ o.connect(g);g.connect(master);o.start(t);o.stop(t+d+.05)}
+function noise(d,v=.4,t0=0,lp=800){const c=actx();if(!c)return;const n=c.sampleRate*d,b=c.createBuffer(1,n,c.sampleRate),a=b.getChannelData(0);
+ for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*(1-i/n);
+ const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type="lowpass";f.frequency.value=lp;g.gain.value=v;
+ s.connect(f);f.connect(g);g.connect(master);s.start(c.currentTime+t0)}
+const sfx={_s:null,
+ boom(){noise(1.3,.8,0,260);tone(95,1,"sine",.6,0,30)},
+ siren(sec=3.6){this.stopSiren();const c=actx();if(!c)return;const o=c.createOscillator(),g=c.createGain(),t=c.currentTime;
+  o.type="sawtooth";o.connect(g);g.connect(master);
+  for(let k=0;k<Math.ceil(sec/.8);k++){o.frequency.setValueAtTime(650,t+k*.8);o.frequency.linearRampToValueAtTime(1050,t+k*.8+.4);o.frequency.linearRampToValueAtTime(650,t+k*.8+.8)}
+  g.gain.setValueAtTime(.11,t);g.gain.setValueAtTime(.11,t+sec-.3);g.gain.linearRampToValueAtTime(0,t+sec);
+  o.start(t);o.stop(t+sec+.1);this._s=o},
+ stopSiren(){try{this._s&&this._s.stop()}catch(e){}this._s=null},
+ alert(){[0,.18,.36].forEach(t=>tone(880,.12,"square",.16,t))},
+ trigger(){tone(440,.2,"triangle",.3);tone(660,.2,"triangle",.3,.15);tone(990,.45,"triangle",.3,.3)},
+ tick(){tone(1200,.07,"sine",.18)},
+ stepDone(){tone(784,.12,"sine",.22);tone(1175,.2,"sine",.22,.1)},
+ whoosh(){noise(1.2,.4,0,2200);tone(300,1,"sine",.12,0,900)},
+ chime(){[523,659,784,1047].forEach((f,k)=>tone(f,.7,"sine",.26,k*.14))},
+ fanfare(){[523,659,784,1047,784,1047,1319].forEach((f,k)=>tone(f,.45,"triangle",.26,k*.13))},
+ ring(){[0,.55].forEach(t=>{tone(440,.3,"square",.08,t);tone(480,.3,"square",.08,t)})},
+ buzz(){tone(150,.5,"sawtooth",.2,0,80)},
+ low(){tone(300,.08,"sine",.14)}};
+$("#snd").onclick=()=>{soundOn=!soundOn;$("#snd").textContent=soundOn?"🔊 Sound on":"🔇 Sound off";if(!soundOn)sfx.stopSiren();else{actx();sfx.tick()}};
+
+/* ===== DR simulation data ===== */
+const T=[["net","🌐","Network & DNS"],["sto","💽","Storage"],["vm","🖥️","Virtual machines"],["db","🗄️","Databases"],["app","🧩","Applications"]];
+const LBL={ok:"ONLINE",up:"ONLINE",down:"OFFLINE",standby:"STANDBY · SYNCED",start:"STARTING…"};
+const ROLES=[
+ ["orb","Control-M engine","The orchestrator. Monitors both sites, decides when failover criteria are met and runs the DR runbook."],
+ ["repl","Replication","Keeps data and VM state continuously in sync so the DR site is always ready, with a minimal recovery point."],
+ ["sto","Storage","Replicated LUNs and file systems are mounted at DR and verified before anything else starts."],
+ ["vm","Virtual machines","Mirrored workloads are powered on at DR in dependency order."],
+ ["db","Databases","Standby databases are opened read-write and listeners registered, so data is current and consistent."],
+ ["net","Network & DNS","Addressing, firewall policy, load balancers and DNS are repointed so users reach DR with the same names."],
+ ["app","Applications","ERP, CRM, email and portals start tier by tier, each health-checked before the next is released."]];
+const NARR=[
+ ["Business as usual","Production runs at the primary site. The DR site stays on standby, continuously synchronised, while Control-M watches over both."],
+ ["Disaster strikes","Power, network and storage at the primary data centre fail. Servers go dark and users lose access."],
+ ["Control-M detects it","Heartbeats, storage paths and routing checks fail together. Control-M confirms the failover criteria are met and triggers the DR runbook automatically."],
+ ["The runbook executes itself","Validate replication, mount storage, start VMs and databases, reconfigure network and DNS, start the applications, then validate the business. No manual steps."],
+ ["Traffic follows health","The global traffic manager repoints users to the DR site. They keep working through the same names and endpoints they always use."],
+ ["Business restored · recovery dashboard","Services are live at DR and validated end to end. The dashboard summarises what Control-M executed, how long each step took, and the health of every service."],
+ ["Now, the same disaster the traditional way","Same outage, same infrastructure, but recovery depends on phone calls, a stale document and hand-offs between teams. Watch the clock, and remember Control-M was done in about 40 minutes."],
+ ["The verdict","Both recoveries reached the same place. One took about 40 minutes with no manual steps; the other took hours, with rework and hand-offs along the way."]];
+const ACT=[["orb","repl"],["net","sto","vm","db","app"],["orb"],["orb","sto","vm","db","net","app"],["orb","net"],["orb","app"],["sto","vm","db","net","app"],["orb"]];
+const RUN=[
+ ["Validate replication","sto",null,180,"18 consistency groups verified · apply lag 0 s"],
+ ["Mount storage","sto","up",240,"LUNs presented at DR · file systems attached & verified"],
+ ["Start virtual machines","vm","up",360,"248 VMs powered on in dependency order"],
+ ["Restore & start databases","db","up",420,"Standby databases opened read-write · listeners registered"],
+ ["Configure network & load balancers","net",null,300,"VLANs, firewall policy & NLB pools applied"],
+ ["Repoint DNS & validate","net","up",120,"Records repointed · TTL 60 s · resolution verified"],
+ ["Start & validate applications","app","up",480,"6 services up · synthetic transactions pass on every tier"],
+ ["Validate business transactions","app",null,180,"Key transactions confirmed end to end · owners notified"]];
+const OLD=[
+ ["Outage noticed; on-call engineer phoned",15,"👤 PEOPLE",null],
+ ["Crisis bridge opened; DR document found (14 months old)",20,"📄 STALE RUNBOOK",null],
+ ["Storage team mounts LUNs by hand",25,"⏳ HAND-OFF","sto"],
+ ["VM team powers on servers one by one",30,"⏳ HAND-OFF","vm"],
+ ["DBA restores databases; first attempt fails, repeat",40,"⚠ REWORK","db"],
+ ["Network team changes VLANs, firewall and DNS",30,"⏳ HAND-OFF","net"],
+ ["App owners start services; wrong dependency order",45,"⚠ REWORK","app"],
+ ["Business validation by phone and email",20,"📞 MANUAL",null]];
+const CM_SEC=20+RUN.reduce((s,r)=>s+r[3],0)+132; /* 2432 s = 40:32 */
+const OLD_MIN=OLD.reduce((s,r)=>s+r[1],0);        /* 225 min */
+
+const mkTiles=(id,side)=>{$(id).innerHTML=T.map(t=>`<div class="tile" data-k="${t[0]}" data-s="${side}"><span class="ic">${t[1]}</span><b>${t[2]}</b><span class="s"></span></div>`).join("")};
+mkTiles("#tP","P");mkTiles("#tD","D");
+const setT=(side,k,st)=>{const el=$(`.tile[data-s="${side}"][data-k="${k}"]`);el.className="tile "+st;el.querySelector(".s").textContent=LBL[st]};
+const setAll=(side,st)=>T.forEach(t=>setT(side,t[0],st));
+$("#roles").innerHTML=ROLES.map(r=>`<div class="role" id="r-${r[0]}"><div class="h">${r[1]}</div><p>${r[2]}</p></div>`).join("");
+$("#dots").innerHTML=NARR.map((n,i)=>`<div class="dt" data-i="${i}" title="${n[0]}"></div>`).join("");
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let cur=0,tok=0,playing=true,clockSec=0,clockTween;
+const fmt=s=>{s=Math.round(s);return [Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(n=>String(n).padStart(2,"0")).join(":")};
+const ms2=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const hm=m=>{m=Math.floor(m);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"};
+const tweenClock=(to,ms)=>{cancelAnimationFrame(clockTween);const from=clockSec,t0=performance.now();
+ const f=t=>{const p=Math.min(1,(t-t0)/ms);clockSec=from+(to-from)*p;$("#clk").textContent=fmt(clockSec);if(p<1)clockTween=requestAnimationFrame(f)};clockTween=requestAnimationFrame(f)};
+const setStatus=(t,c)=>{const s=$("#status");s.textContent=t;s.className="status "+(c||"")};
+const setOrb=(t,c)=>{$("#orbS").textContent=t;$("#orb").className="orbwrap "+(c||"")};
+const setArr=(p,d)=>{$("#aP").className="arr "+(p||"");$("#aD").className="arr "+(d||"")};
+const setRepl=cut=>{$("#repl").classList.toggle("cut",cut);$("#replT").textContent=cut?"REPLICATION LINK LOST":"CONTINUOUS REPLICATION · DATA IN SYNC"};
+const panel=h=>{const p=$("#panel");p.innerHTML=h;p.style.animation="none";void p.offsetWidth;p.style.animation=""};
+const LG=(m,c="")=>{const l=$("#log");l.innerHTML+=`<div class="${c}"><span>${fmt(clockSec)}</span>${m}</div>`;l.scrollTop=1e9};
+const dash=h=>{const d=$("#dash");d.style.display=h?"block":"none";d.innerHTML=h||"";if(h&&typeof isFS==="function"&&isFS())setTimeout(()=>d.scrollIntoView({behavior:"smooth",block:"start"}),500)};
+function setup(pDead,dUp){
+ setAll("P",pDead?"down":"ok");setAll("D",dUp?"up":"standby");
+ $("#sP").className="site "+(pDead?"dead":"live");$("#sD").className="site "+(dUp?"live":"");
+ $("#spS").textContent=pDead?"OFFLINE":"ACTIVE";$("#sdS").textContent=dUp?"ACTIVE":"STANDBY";setRepl(pDead)}
+
+/* ===== dashboards ===== */
+function dashCM(){
+ const mx=Math.max(...RUN.map(r=>r[3]));
+ return `<div class="dh"><b>📊 Control-M · DR execution report</b><span>DR-FAILOVER-PROD · v4.2 · completed unattended</span></div>
+ <div class="kgrid">
+  <div class="kg"><b>40:32</b><span>RECOVERY TIME · target 60:00</span></div>
+  <div class="kg"><b>&lt; 5 s</b><span>RECOVERY POINT (RPO)</span></div>
+  <div class="kg"><b>0</b><span>MANUAL STEPS</span></div>
+  <div class="kg"><b>248 / 248</b><span>VMs RECOVERED</span></div>
+  <div class="kg"><b>143 / 143</b><span>JOBS EXECUTED</span></div>
+  <div class="kg"><b>24 / 24</b><span>VALIDATIONS PASSED</span></div>
+ </div>
+ <div class="dcols">
+  <div class="dbox"><h4>Runbook timeline · minutes per step</h4>
+   <div class="br"><span>Detect &amp; trigger</span><div class="t"><i data-w="${20/mx*100}"></i></div><em>0:20</em></div>
+   ${RUN.map(r=>`<div class="br"><span>${r[0]}</span><div class="t"><i data-w="${r[3]/mx*100}"></i></div><em>${ms2(r[3])}</em></div>`).join("")}
+   <div class="br"><span>Traffic redirect</span><div class="t"><i data-w="${132/mx*100}"></i></div><em>2:12</em></div>
+  </div>
+  <div class="dbox"><h4>Service health at the DR site</h4>
+   <div class="svc"><span>ERP</span><span>CRM</span><span>Email</span><span>Web portal</span><span>Core systems</span><span>Reports &amp; integrations</span></div>
+   <div class="sla">SLA target 60:00 · <b style="color:var(--ok)">met with 19:28 to spare</b><div class="t"><i data-w="${CM_SEC/3600*100}"></i></div></div>
+   <p class="note">Every step logged with timestamps for audit. Figures are illustrative.</p>
+  </div>
+ </div>`}
+function animBars(){setTimeout(()=>$$("[data-w]").forEach(i=>i.style.width=i.dataset.w+"%"),60)}
+function dashRace(){
+ return `<div class="dh"><b>⚔ Same disaster · two recoveries</b><span>Control-M finished at 00:40:32. The clock now shows the traditional recovery.</span></div>
+ <div class="vs">
+  <div class="col new"><h3>⚙️ Control-M <span>automated</span></h3><div class="ck">00:40:32</div><div class="bar2"><i style="width:100%"></i></div>
+   ${RUN.map((r,j)=>`<div class="rs done">${j+1}. ${r[0]}<span class="tg">AUTO</span></div>`).join("")}<div class="mark show">✓ Recovered · 0 manual steps</div></div>
+  <div class="col old"><h3>🧑‍💻 Traditional <span>phone calls · documents · hand-offs</span></h3><div class="ck" id="ck-old">00:00:00</div><div class="bar2"><i id="pb-old"></i></div>
+   <div id="rs-old">${OLD.map((s,j)=>`<div class="rs" id="o${j}">${j+1}. ${s[0]}<span class="tg">${s[2]}</span></div>`).join("")}</div>
+   <div class="mark" id="mk">⏱ This is where Control-M had already finished.</div></div>
+ </div>`}
+function dashVerdict(){
+ const saved=OLD_MIN*60-CM_SEC,ratio=(OLD_MIN*60/CM_SEC).toFixed(1);
+ const cnt=t=>OLD.filter(o=>o[2].includes(t)).length;
+ return `<div class="dh"><b>🏁 Comparison</b><span>Same outage · same infrastructure · illustrative scenario</span></div>
+ <div class="hero2"><div><b class="grad">≈ ${hm(saved/60)}</b><span>RECOVERY TIME SAVED</span></div><div><b class="grad">${ratio}×</b><span>FASTER WITH CONTROL-M</span></div></div>
+ <div class="cbar"><span>Control-M</span><div class="t"><i data-w="${CM_SEC/(OLD_MIN*60)*100}" style="background:linear-gradient(90deg,var(--ok),var(--cy))"></i></div><em style="color:var(--ok)">00:40:32</em></div>
+ <div class="cbar"><span>Traditional</span><div class="t"><i data-w="100" style="background:linear-gradient(90deg,#fbbf24,var(--bad))"></i></div><em style="color:var(--bad)">03:45:00</em></div>
+ <div class="big4">
+  <div><b><i>0</i> vs <u>8</u></b><span>MANUAL STEPS</span></div>
+  <div><b><i>0</i> vs <u>${cnt("HAND-OFF")}</u></b><span>TEAM HAND-OFFS</span></div>
+  <div><b><i>0</i> vs <u>${cnt("REWORK")}</u></b><span>REWORK LOOPS</span></div>
+  <div><b><i>None</i> vs <u>${cnt("STALE")}</u></b><span>STALE-DOCUMENT RISK</span></div>
+ </div>`}
+
+/* ===== the story ===== */
+async function go(i){
+ const my=++tok,ok=()=>my===tok;
+ cur=i;cancelAnimationFrame(clockTween);sfx.stopSiren();if(i<5&&typeof stg!=="undefined")stg.scrollTop=0;
+ $("#stage").classList.remove("alarm");$("#log").innerHTML="";dash("");$("#clkL").textContent="ELAPSED (SIMULATED)";
+ $$(".dt").forEach((d,k)=>{d.classList.toggle("on",k<=i);d.classList.toggle("cur",k===i)});
+ $("#lab").textContent=`${i+1}/${NARR.length} · ${NARR[i][0]}`;
+ $("#nN").textContent=`STEP ${i+1} OF ${NARR.length}`;$("#nT").textContent=NARR[i][0];$("#nD").textContent=NARR[i][1];
+ $$(".role").forEach(r=>r.classList.remove("act"));ACT[i].forEach(k=>$("#r-"+k).classList.add("act"));
+ const dwell=async ms=>{await sleep(ms);return ok()};
+ const autoNext=async ms=>{if(!await dwell(ms))return;while(!playing&&ok())await sleep(200);if(ok()&&i<NARR.length-1)go(i+1)};
+
+ if(i===0){setup(false,false);clockSec=0;$("#clk").textContent="--:--:--";
+  setStatus("ALL SYSTEMS NORMAL");setOrb("MONITORING");setArr("on","");$("#rpo").textContent="≈ 0 s";
+  LG("[MONITOR] Primary and DR sites healthy · replication lag 0.4 s","g");LG("[MONITOR] 248 VMs · 3 databases · 6 services protected","c");
+  panel(`<h3>Everything is running</h3><p>Production is live at the primary site. The DR site is on standby and fully synchronised. Control-M is watching both.</p><div style="margin-top:22px"><button class="btn pri" id="boom">⚡ Simulate disaster</button></div><p style="margin-top:14px;font-size:12.5px">🔊 Sound effects play during the simulation.</p>`);
+  $("#boom").onclick=()=>go(1);
+ }
+ if(i===1){setup(false,false);clockSec=0;$("#clk").textContent="00:00:00";
+  setStatus("PRIMARY SITE FAILING","bad");setOrb("MONITORING");setArr("bad","");$("#stage").classList.add("alarm");
+  sfx.boom();sfx.siren(3.8);
+  panel(`<h3 style="color:var(--bad)">💥 Primary data centre lost</h3><p>Utility power, network edge and storage paths are failing. Applications are unreachable.</p><div class="kp3"><div><b style="color:var(--bad)">0%</b><span>SERVICES UP</span></div><div><b style="color:var(--bad)">!</b><span>USERS IMPACTED</span></div><div><b style="color:var(--bad)">DOWN</b><span>PRIMARY</span></div></div>`);
+  LG("[ALERT] Utility power feed A and B lost","r");
+  for(const t of T){if(!await dwell(420))return;setT("P",t[0],"down");LG(`[ALERT] ${t[2]} unavailable at primary`,"r")}
+  $("#sP").className="site dead";$("#spS").textContent="OFFLINE";setRepl(true);LG("[ALERT] Replication link to DR lost","r");
+  tweenClock(5,2200);await autoNext(2600);
+ }
+ if(i===2){setup(true,false);clockSec=5;$("#clk").textContent="00:00:05";$("#stage").classList.add("alarm");
+  setStatus("CRITICAL · FAILURE DETECTED","bad");setOrb("FAILURE DETECTED","alert");setArr("bad","");tweenClock(20,6000);
+  const L=[["HEARTBEAT","lost · 3 consecutive checks failed"],["STORAGE","replication target unreachable · all paths down"],["NETWORK","edge routers withdrawing prefixes"],["POWER","utility feeds offline · UPS depleted"],["DECISION","failover criteria MET"]];
+  panel(`<div class="mon"><div class="bar"><span>CONTROL-M · SITE HEALTH</span><span>CRITICAL</span></div>${L.map((l,k)=>`<div class="ln" style="animation-delay:${.6+k*.8}s"><b>${l[0]}</b> ${l[1]}</div>`).join("")}<div class="trig" style="animation-delay:${.6+L.length*.8+.3}s">⚙ DR RUNBOOK TRIGGERED AUTOMATICALLY · NO HUMAN ACTION REQUIRED</div></div>`);
+  if(!await dwell(600))return;
+  for(const l of L){sfx.alert();LG(`[CONTROL-M] ${l[0]} ${l[1]}`,"o");if(!await dwell(800))return}
+  if(!await dwell(300))return;sfx.stopSiren();sfx.trigger();LG("[CONTROL-M] Runbook DR-FAILOVER-PROD triggered automatically","g");
+  await autoNext(2200);
+ }
+ if(i===3){setup(true,false);clockSec=20;$("#clk").textContent="00:00:20";
+  setStatus("FAILOVER IN PROGRESS","warn");setOrb("RUNBOOK EXECUTING");setArr("bad","");$("#sdS").textContent="ACTIVATING";
+  panel(`<h3>Runbook DR-FAILOVER-PROD</h3><div class="steps" style="margin-top:10px">${RUN.map((r,k)=>`<div class="stp" id="st${k}">${k+1}. ${r[0]}<i>QUEUED</i><small>${r[4]}</small></div>`).join("")}</div>`);
+  let cum=20;
+  for(let k=0;k<RUN.length;k++){
+   const s=$("#st"+k);if(!s||!ok())return;s.className="stp run";s.querySelector("i").textContent="RUNNING";sfx.tick();
+   LG(`[RUNBOOK] Step ${k+1}/8 · ${RUN[k][0]} · ${RUN[k][4]}`,"c");
+   if(RUN[k][2])setT("D",RUN[k][1],"start");
+   cum+=RUN[k][3];tweenClock(cum,1500);
+   if(!await dwell(1500))return;
+   s.className="stp done";s.querySelector("i").textContent="COMPLETE";sfx.stepDone();
+   if(RUN[k][2])setT("D",RUN[k][1],"up");
+  }
+  setOrb("RUNBOOK COMPLETE","good");$("#sD").className="site live";$("#sdS").textContent="ACTIVE";
+  sfx.chime();LG("[RUNBOOK] DR-FAILOVER-PROD complete · all tiers validated","g");await autoNext(1400);
+ }
+ if(i===4){setup(true,true);clockSec=20+RUN.reduce((s,r)=>s+r[3],0);$("#clk").textContent=fmt(clockSec);
+  setStatus("REDIRECTING TRAFFIC","warn");setOrb("RUNBOOK COMPLETE","good");setArr("bad","");
+  panel(`<h3>🌐 Global traffic manager</h3><p>Health-based routing withdraws the failed site and sends all traffic to DR. DNS TTL is 60 s, and users keep the same names and endpoints.</p><div class="kp3"><div><b style="color:var(--bad)">0%</b><span>PRIMARY</span></div><div><b>→</b><span>REDIRECT</span></div><div><b>100%</b><span>DR SITE</span></div></div>`);
+  LG("[TRAFFIC] Health check: primary unhealthy · withdrawing from rotation","o");
+  tweenClock(CM_SEC,3500);sfx.whoosh();setArr("","on");
+  if(!await dwell(1700))return;LG("[TRAFFIC] 100% of requests now served by DR site","g");setArr("bad","ok");
+  await autoNext(2800);
+ }
+ if(i===5){setup(true,true);clockSec=CM_SEC;$("#clk").textContent=fmt(CM_SEC);
+  setStatus("BUSINESS RESTORED");setOrb("ALL SERVICES LIVE","good");setArr("bad","ok");$("#rpo").textContent="< 5 s";
+  sfx.fanfare();LG("[CONTROL-M] Business restored · RTO 40:32 · RPO < 5 s · 0 manual steps","g");
+  panel(`<h3 style="color:var(--ok)">✅ Business restored</h3><p>Recovered at the DR site and validated end to end. Full execution report below.</p><div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm pri" id="old">▶ Now see the old way</button><button class="btn sm" id="again">↺ Replay</button></div>`);
+  $("#old").onclick=()=>go(6);$("#again").onclick=()=>go(0);
+  dash(dashCM());animBars();
+  await autoNext(20000);
+ }
+ if(i===6){setup(true,false);clockSec=0;$("#clk").textContent="00:00:00";$("#clkL").textContent="ELAPSED · TRADITIONAL RECOVERY";
+  setStatus("MANUAL RECOVERY IN PROGRESS","warn");setOrb("NO AUTOMATION","idle");setArr("bad","");$("#rpo").textContent="not guaranteed";$("#stage").classList.add("alarm");
+  panel(`<h3>🕰 The same outage, the old way</h3><p>No orchestrator. People, documents and phone calls. Each hand-off is a delay and each mistake is rework.</p><div class="kp3"><div><b style="color:var(--bad)">8</b><span>MANUAL STEPS</span></div><div><b style="color:var(--bad)">3</b><span>HAND-OFFS</span></div><div><b style="color:var(--bad)">2</b><span>REWORK LOOPS</span></div></div>`);
+  dash(dashRace());
+  LG("[PHONE] Primary data centre down — paging on-call engineer…","r");
+  let m=0,last=-1,marked=false;
+  while(ok()){
+   if(playing){m+=1;clockSec=m*60;$("#clk").textContent=fmt(clockSec);
+    let c=0,idx=OLD.length;OLD.forEach((s,j)=>{if(m>=c&&m<c+s[1])idx=j;c+=s[1]});
+    let c2=0;OLD.forEach((s,j)=>{const st=c2,en=c2+s[1];c2=en;const el=$("#o"+j);if(!el)return;
+     el.className="rs"+(m>=en?" done":m>=st?" run":"")+(m>=st&&/REWORK|STALE/.test(s[2])?" pain":"")});
+    if(idx!==last&&idx<OLD.length){
+     const o=OLD[idx];last=idx;LG(`[${/REWORK|STALE/.test(o[2])?"PROBLEM":"MANUAL"}] ${o[0]}`,/REWORK|STALE/.test(o[2])?"r":"o");
+     if(/REWORK|STALE/.test(o[2]))sfx.buzz();else sfx.ring();
+     if(o[3])setT("D",o[3],"start");
+     if(idx>0&&OLD[idx-1][3])setT("D",OLD[idx-1][3],"up");}
+    $("#ck-old").textContent=fmt(clockSec);$("#pb-old").style.width=Math.min(100,m/OLD_MIN*100)+"%";
+    if(!marked&&m>=CM_SEC/60){marked=true;const k=$("#mk");k.classList.add("show");
+     k.textContent=`⏱ 00:40 · Control-M had already recovered the business. The manual team is on step ${(idx<OLD.length?idx:OLD.length-1)+1} of 8.`;
+     sfx.chime();LG("[COMPARE] Control-M finished here. Manual recovery is still in progress.","g")}
+    if(m>=OLD_MIN)break}
+   await sleep(100)}
+  if(!ok())return;
+  OLD.forEach((s,j)=>{const el=$("#o"+j);if(el)el.className="rs done"+(/REWORK|STALE/.test(s[2])?" pain":"")});
+  setT("D","app","up");setStatus("RECOVERED · MANUAL · 3H 45M","warn");$("#stage").classList.remove("alarm");
+  LG("[MANUAL] Business validated by phone and email · recovery complete (03:45:00)","o");sfx.stepDone();
+  await autoNext(2500);
+ }
+ if(i===7){setup(true,true);clockSec=OLD_MIN*60;$("#clk").textContent=fmt(clockSec);$("#clkL").textContent="TRADITIONAL RECOVERY TIME";
+  setStatus("COMPARISON COMPLETE");setOrb("40:32 · AUTOMATED","good");setArr("bad","ok");sfx.fanfare();
+  LG("[VERDICT] Control-M 00:40:32 vs traditional 03:45:00","g");
+  panel(`<h3 style="color:var(--ok)">🏁 Same result, very different path</h3><p>Control-M recovered the business in about 40 minutes with no manual steps. The traditional approach needed hours, rework and hand-offs between teams.</p><div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn sm pri" href="#contact">Book a DR workshop</a><button class="btn sm" id="again2">↺ Replay</button></div>`);
+  $("#again2").onclick=()=>go(0);
+  dash(dashVerdict());animBars();
+ }
+}
+$("#next").onclick=()=>go(Math.min(cur+1,NARR.length-1));
+$("#prev").onclick=()=>go(Math.max(cur-1,0));
+$("#rst").onclick=()=>go(0);
+$("#play").onclick=()=>{playing=!playing;$("#play").textContent=playing?"⏸ Pause":"▶ Play";if(!playing)sfx.stopSiren()};
+$$(".dt").forEach(d=>d.onclick=()=>go(+d.dataset.i));
+const stg=$("#stage");
+const isFS=()=>document.fullscreenElement===stg||document.webkitFullscreenElement===stg||stg.classList.contains("pfs");
+const lblFS=()=>$("#fs").textContent=isFS()?"⛶ Exit full screen":"⛶ Full screen";
+function pseudo(on){stg.classList.toggle("pfs",on);document.body.style.overflow=on?"hidden":"";lblFS()}
+function enterFS(){let r=null;try{r=stg.requestFullscreen?stg.requestFullscreen():stg.webkitRequestFullscreen?stg.webkitRequestFullscreen():null}catch(e){r=null}
+ if(r&&r.catch)r.catch(()=>pseudo(true));else if(!r)pseudo(true);setTimeout(lblFS,300)}
+function exitFS(){if(document.fullscreenElement||document.webkitFullscreenElement){try{(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}}pseudo(false)}
+$("#fs").onclick=()=>isFS()?exitFS():enterFS();
+document.addEventListener("fullscreenchange",lblFS);document.addEventListener("webkitfullscreenchange",lblFS);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&stg.classList.contains("pfs"))exitFS()});
+$("#startSim").onclick=e=>{e.preventDefault();$("#sim").scrollIntoView();actx();enterFS();go(0);setTimeout(()=>{if(cur===0&&isFS())go(1)},1600)};
+document.addEventListener("keydown",e=>{if(e.code==="ArrowRight")$("#next").click();if(e.code==="ArrowLeft")$("#prev").click()});
+const flash=k=>{const r=$("#r-"+k);if(!r)return;r.classList.remove("flash");void r.offsetWidth;r.classList.add("flash");r.scrollIntoView({behavior:"smooth",block:"center"})};
+$$(".tile").forEach(t=>t.onclick=()=>flash(t.dataset.k));
+$("#orb").onclick=()=>flash("orb");$("#repl").onclick=()=>flash("repl");
+
+/* ===== Control-M workflow UI mock-up ===== */
+(()=>{
+const J=[
+ {id:"detect",n:"Detect-Failure",ic:"📡",t:"Event sensor",c:0,y:160,d:[],host:"ctm-agent-mon01",ms:1100,out:"SITE-DOWN-DETECTED",desc:"Watches heartbeats, storage paths and routing at the primary site and confirms the failover criteria are met.",onf:"Re-evaluate in 30 s and notify the NOC"},
+ {id:"valrep",n:"Validate-Replication",ic:"🔁",t:"Script",c:1,y:160,d:["detect"],host:"ctm-agent-stor01",ms:1300,out:"REPL-VALIDATED",desc:"Checks that every consistency group has replicated and that apply lag is within the recovery point target.",onf:"Use last good checkpoint and alert storage on-call"},
+ {id:"mount",n:"Mount-Storage",ic:"💽",t:"Storage",c:2,y:60,d:["valrep"],host:"ctm-agent-stor01",ms:1500,out:"STORAGE-MOUNTED",desc:"Presents replicated LUNs at the DR site and attaches the file systems.",onf:"Retry twice, then escalate"},
+ {id:"net",n:"Configure-Network",ic:"🌐",t:"Network automation",c:2,y:260,d:["valrep"],host:"ctm-agent-net01",ms:1500,out:"NETWORK-READY",desc:"Applies VLANs, firewall policy and load-balancer pools at the DR site.",onf:"Retry twice, then escalate"},
+ {id:"vms",n:"Start-VMs",ic:"🖥️",t:"Hypervisor",c:3,y:60,d:["mount"],host:"ctm-agent-vc01",ms:1800,out:"VMS-RUNNING",desc:"Powers on mirrored virtual machines in dependency order.",onf:"Retry failed VMs only"},
+ {id:"dns",n:"Repoint-DNS",ic:"🧭",t:"DNS / API",c:3,y:260,d:["net"],host:"ctm-agent-net01",ms:1200,out:"DNS-UPDATED",desc:"Repoints records to the DR site and verifies resolution.",onf:"Retry, then use secondary DNS provider"},
+ {id:"db",n:"Restore-DBs",ic:"🗄️",t:"Database",c:4,y:60,d:["vms"],host:"ctm-agent-db01",ms:1800,out:"DB-OPEN",desc:"Opens standby databases read-write and registers listeners.",onf:"Rerun automatically (up to 2 times), then page the DBA",failable:true},
+ {id:"apps",n:"Start-Apps",ic:"🧩",t:"Application",c:5,y:160,d:["db","dns"],host:"ctm-agent-app01",ms:1700,out:"APPS-UP",desc:"Starts ERP, CRM, email and portals tier by tier, health-checking each before the next.",onf:"Restart the failed tier and alert the application owner"},
+ {id:"biz",n:"Validate-Business",ic:"✅",t:"Synthetic test",c:6,y:160,d:["apps"],host:"ctm-agent-app01",ms:1300,out:"BUSINESS-VALIDATED",desc:"Runs key business transactions end to end and notifies service owners.",onf:"Hold sign-off and notify the incident manager"}];
+J.forEach(j=>{j.x=18+150*j.c});
+const byId={};J.forEach(j=>byId[j.id]=j);
+const LB={wait:"Waiting",run:"Executing",ok:"Ended OK",fail:"Ended Not OK",retry:"Rerun #1"};
+const st={},t0={},t1={};let run=false,failOn=false,tok=0,timers=[],sel="detect",failed=false,iv=null,runStart=0;
+const cv=$("#uicanvas"),svg=$("#uisvg"),W=124,H=64;
+const fmt=ms=>{const s=Math.round(ms/1000);return "+"+String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+/* nodes */
+cv.insertAdjacentHTML("beforeend",J.map(j=>`<div class="uin st-wait" id="uj-${j.id}" style="left:${j.x}px;top:${j.y}px" data-id="${j.id}"><b><i>${j.ic}</i>${j.n}</b><small>Waiting</small></div>`).join(""));
+/* edges */
+let eh="";const E=[];
+J.forEach(j=>j.d.forEach(a=>{const A=byId[a],x1=A.x+W,y1=A.y+H/2,x2=j.x,y2=j.y+H/2,m=(x1+x2)/2;
+ eh+=`<g class="edge" id="ue-${a}-${j.id}"><path d="M${x1},${y1} C${m},${y1} ${m},${y2} ${x2-8},${y2}"/><polygon points="${x2},${y2} ${x2-9},${y2-5} ${x2-9},${y2+5}"/></g>`;E.push([a,j.id])}));
+svg.innerHTML=eh;
+/* summary */
+$("#uisum").insertAdjacentHTML("beforeend",`<div class="uic" style="--c:#059669"><b id="c-ok">0</b><span>Ended OK</span></div><div class="uic" style="--c:#0284c7"><b id="c-run">0</b><span>Executing</span></div><div class="uic" style="--c:#64748b"><b id="c-wait">0</b><span>Waiting</span></div><div class="uic" style="--c:#e11d48"><b id="c-fail">0</b><span>Ended not OK</span></div>
+<div class="uisla"><span class="uimk" style="top:-8px;right:-8px">4</span><div class="hd"><b>Service: Disaster Recovery</b><em id="slaT">Not started</em></div><div style="margin-top:2px">SLA target: recover within 60 min</div><div class="bar"><i id="slaB"></i></div></div>`);
+const log=(m,c="")=>{const l=$("#uilog");l.innerHTML+=`<div class="${c}">${m}</div>`;l.scrollTop=1e9};
+function fit(){const w=$("#uicw").clientWidth;if(!w)return;const k=Math.max(.6,Math.min(1,w/1060));cv.style.transform=`scale(${k})`;$("#uicw").style.height=(360*k)+"px"}
+addEventListener("resize",fit);
+function props(){const j=byId[sel],s=st[j.id]||"wait";
+ $("#uipb").innerHTML=`<h4>Job properties</h4><h3><span>${j.ic}</span>${j.n}</h3><span class="pillst ${s}">${LB[s]}</span>
+ <dl><dt>Type</dt><dd>${j.t}</dd><dt>Agent / host</dt><dd>${j.host}</dd><dt>Application</dt><dd>Disaster Recovery</dd><dt>Runs after</dt><dd>${j.d.length?j.d.map(d=>byId[d].n).join(" + "):"— (triggered by monitor)"}</dd><dt>Then sets</dt><dd>${j.out}</dd><dt>On failure</dt><dd>${j.onf}</dd><dt>Started</dt><dd>${t0[j.id]!=null?fmt(t0[j.id]-runStart):"—"}</dd><dt>Duration</dt><dd>${t1[j.id]!=null?((t1[j.id]-t0[j.id])/1000).toFixed(1)+" s":"—"}</dd></dl><p>${j.desc}</p>`}
+function listv(){$("#uilist").innerHTML=`<table><tr><th>Job</th><th>Type</th><th>Agent</th><th>Status</th><th>Started</th><th>Duration</th></tr>${J.map(j=>{const s=st[j.id]||"wait";return `<tr><td><b>${j.ic} ${j.n}</b></td><td>${j.t}</td><td>${j.host}</td><td><span class="pillst ${s}">${LB[s]}</span></td><td>${t0[j.id]!=null?fmt(t0[j.id]-runStart):"—"}</td><td>${t1[j.id]!=null?((t1[j.id]-t0[j.id])/1000).toFixed(1)+" s":"—"}</td></tr>`}).join("")}</table>`}
+function draw(){
+ let n={ok:0,run:0,wait:0,fail:0};
+ J.forEach(j=>{const s=st[j.id]||"wait",el=$("#uj-"+j.id);el.className=`uin st-${s}${sel===j.id?" sel":""}`;el.querySelector("small").textContent=LB[s];
+  if(s==="ok")n.ok++;else if(s==="run"||s==="retry")n.run++;else if(s==="fail")n.fail++;else n.wait++});
+ E.forEach(([a,b])=>{const g=$(`#ue-${a}-${b}`);const sa=st[a]||"wait",sb=st[b]||"wait";g.setAttribute("class","edge"+(sa==="ok"&&(sb==="run"||sb==="retry")?" flow":sa==="ok"?" done":""))});
+ $("#c-ok").textContent=n.ok;$("#c-run").textContent=n.run;$("#c-wait").textContent=n.wait;$("#c-fail").textContent=n.fail;
+ $("#slaB").style.width=(n.ok/J.length*100)+"%";
+ const T=$("#slaT");
+ if(n.ok===J.length){T.textContent="Met ✓";T.style.color="#059669"}
+ else if(n.fail||J.some(j=>st[j.id]==="retry")){T.textContent="At risk · rerun in progress";T.style.color="#d97706"}
+ else if(run){T.textContent="On track";T.style.color="#0284c7"}
+ else{T.textContent="Not started";T.style.color="#64748b"}
+ props();listv()}
+function reset(){tok++;timers.forEach(clearTimeout);timers=[];clearInterval(iv);run=false;failed=false;J.forEach(j=>{st[j.id]="wait";delete t0[j.id];delete t1[j.id]});
+ $("#uiRun").textContent="▶ Run workflow";$("#uilog").innerHTML="";log("Ready. Workflow DR-FAILOVER-PROD is ordered and waiting.","c");draw()}
+const snd=n=>{try{typeof sfx!=="undefined"&&sfx[n]&&sfx[n]()}catch(e){}};
+function start(){if(run)return;reset();run=true;runStart=performance.now();const my=tok;$("#uiRun").textContent="● Running…";
+ log("Workflow ordered · site failure event received","c");snd("trigger");
+ const step=()=>{if(my!==tok)return;
+  J.forEach(j=>{if(st[j.id]!=="wait")return;if(!j.d.every(d=>st[d]==="ok"))return;
+   st[j.id]="run";t0[j.id]=performance.now();log(`${j.n} started on ${j.host}`);snd("tick");
+   timers.push(setTimeout(()=>{if(my!==tok)return;
+    if(failOn&&j.failable&&!failed){failed=true;st[j.id]="fail";t1[j.id]=performance.now();log(`${j.n} ENDED NOT OK · connection to standby database lost`,"r");snd("buzz");draw();
+     timers.push(setTimeout(()=>{if(my!==tok)return;st[j.id]="retry";log(`Control-M rerun #1 of ${j.n} · on-failure action applied`,"o");snd("alert");draw();
+      timers.push(setTimeout(()=>{if(my!==tok)return;st[j.id]="ok";t1[j.id]=performance.now();log(`${j.n} ended OK after rerun · SLA recovered`,"g");snd("stepDone");draw()},j.ms))},1400));return}
+    st[j.id]="ok";t1[j.id]=performance.now();log(`${j.n} ended OK · ${j.out}`,"g");snd("stepDone");draw()},j.ms))});
+  draw();
+  if(J.every(j=>st[j.id]==="ok")){clearInterval(iv);run=false;$("#uiRun").textContent="▶ Run again";log("Workflow complete · all jobs ended OK · 0 manual steps","g");snd("chime");draw()}};
+ iv=setInterval(step,150);step()}
+cv.addEventListener("click",e=>{const n=e.target.closest(".uin");if(!n)return;sel=n.dataset.id;snd("tick");draw()});
+$("#uiRun").onclick=start;$("#uiReset").onclick=reset;
+$("#uiFail").onclick=()=>{failOn=!failOn;$("#uiFail").textContent=failOn?"⚡ Failure armed":"⚡ Inject failure";$("#uiFail").style.background=failOn?"rgba(225,29,72,.55)":"";log(failOn?"Failure will be injected on Restore-DBs when it runs.":"Failure disarmed.","o");$("#uilog").scrollTop=1e9};
+$$(".uitabs button").forEach(b=>b.onclick=()=>{$$(".uitabs button").forEach(x=>x.classList.toggle("on",x===b));const f=b.dataset.v==="flow";$("#uicw").style.display=f?"":"none";$("#uilist").style.display=f?"none":"";if(f)fit();draw()});
+$$(".uinav div").forEach(d=>d.onclick=()=>{});
+reset();fit();setTimeout(fit,300);
+})();
+go(0);
+</script>
+</body>
+</html>
